@@ -1,3 +1,9 @@
+# Zig section
+
+src/zig-cache/
+
+# C section
+
 # Prerequisites
 *.d
 

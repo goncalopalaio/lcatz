@@ -1,6 +1,10 @@
 # Zig section
 
-src/zig-cache/
+zig-cache/
+
+# OSX section
+
+.DS_Store
 
 # C section
 

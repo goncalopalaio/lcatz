@@ -12,7 +12,7 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const exe = b.addExecutable("lcatz", "src/main.zig");
-    exe.addPackage("communication", "communication");
+    // exe.addPackage("communication", "communication");
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();

@@ -32,11 +32,35 @@ const Device = struct {
     lines: []Line,
     end: usize,
     reader_thread: ?*std.Thread,
+    pipelines: Pipeline,
 
     fn deinit(self: *const Device, alloc: anytype) void {
         alloc.free(self.lines);
     }
 };
+
+const UpdateType = enum { new_line, clear };
+const Update = union(UpdateType) { new_line: u8, clear: f32};
+
+//    var my_value = Tagged{ .b = 1.5 };
+//    switch (my_value) {
+//        .a => |*byte| byte.* += 1,
+//        .b => |*float| float.* *= 2,
+//        .c => |*b| b.* = !b.*,
+//    }
+//
+
+const Pipeline = struct {
+    queue: std.atomic.Queue(Update)
+};
+
+
+fn pipeline_reader(device: *Device) !void {
+    var idx: usize = 0;
+    while (true) : (idx += 1) {
+
+    }
+}
 
 fn device_reader(device: *Device) !void {
     const args = &[_][]const u8{
@@ -57,7 +81,6 @@ fn device_reader(device: *Device) !void {
     var out = r.stdout orelse return error.FailedToAcquireStdout;
 
     const stdout = std.io.getStdOut();
-    //try stdout.writeAll(CYAN);
 
     const reader = out.reader();
 
@@ -76,6 +99,25 @@ fn device_reader(device: *Device) !void {
         }
 
         var line = &device.lines[idx];
+
+        // TODO:
+        // [ ] - Implement 'pipelines' (the thing that will filter all current lines according to a filter and output it somewhere) in this thread first. Make them async/move to other thread later.
+        //      [ ] - Start by reading query from a file. Have a single file that read in loop where each line corresponds to a filter. Worry about exclusions later.
+        //      [ ] - Write output to a file and close the file each time it's updated.
+        // Notes:
+        //
+        // About avoiding copies of the original line: 
+        // It's probably fine to make a copy of the line to the pipeline? The only case where more than one line arrives at the same time is when the filter changes and everything must be re-filtered
+        // or when the device source lines fill the buffer and it has to be cleared. Is there any gain to be had by having more than one line available in the pipeline? or even avoiding the copy? SOA/AOS zig Vector stuff comes to mind but 
+        // I don't think it would be practical? Gains around this can always be researched later.
+        // Making a copy also makes passing the update to the threads that perform filtering easier? At least this breaks the dependency on Device struct, 
+        // so the device may only copy to a queue and no knowledge of the current lines is required.
+        //
+        // About the mechanism of clearing lines when there's no space: 
+        // There's probably no need to clear all lines when the buffer fills and in fact it would make sense to rotate the lines around, but do we gain anything by clearing the oldest line?
+        // I think this would require that all the remaining lines would be shifted to the previous position and this involves extra work. Is there any clever workaround?
+        // The 'pipelines' don't really care for lines that we no longer have space for, so it should be ok to just message the pipelines that the lines were cleared and re-filter line by line.
+
 
         line.id = idx;
         const min_len = std.math.min(MAX_LINE_LENGTH, content.len);
@@ -133,13 +175,20 @@ pub fn main() anyerror!void {
     for (device_ids.items) |id, idx| {
         info("creating device: {s} {}", .{id, idx});    
 
+        var pipeline = Pipeline {
+            .queue = std.atomic.Queue(Update).init(),
+        };
+
         var device = Device{
             .id = id,
             .end = 0,
             .lines = try allocator.alloc(Line, MAX_LINES_SOURCE),
             .reader_thread = null,
+            .pipelines = pipeline
         };
+
         device.reader_thread = try std.Thread.spawn(device_reader, &device);
+
         try devices.append(device);
     }
 

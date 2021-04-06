@@ -112,6 +112,7 @@ fn device_reader(device: *Device) !void {
         // I don't think it would be practical? Gains around this can always be researched later.
         // Making a copy also makes passing the update to the threads that perform filtering easier? At least this breaks the dependency on Device struct, 
         // so the device may only copy to a queue and no knowledge of the current lines is required.
+        // Can we use some sort of especialized allocator so we have a fixed buffer size (same size as the original lines in the device or at least a multiple between all devices) so we don't have to allocate for copies each time?
         //
         // About the mechanism of clearing lines when there's no space: 
         // There's probably no need to clear all lines when the buffer fills and in fact it would make sense to rotate the lines around, but do we gain anything by clearing the oldest line?
